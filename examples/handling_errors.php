@@ -3,6 +3,8 @@
 
 require "../gump.class.php";
 
+use GUMP\GUMP;
+
 $validator = new GUMP();
 
 // Set the data

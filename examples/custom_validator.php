@@ -3,6 +3,8 @@
 
 require "../gump.class.php";
 
+use GUMP\GUMP;
+
 // Add the custom validator
 GUMP::add_validator("is_object", function($field, $input, $param = NULL) {
     return is_object($input[$field]);

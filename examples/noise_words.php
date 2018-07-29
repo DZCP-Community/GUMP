@@ -3,6 +3,8 @@
 
 require "../gump.class.php";
 
+use GUMP\GUMP;
+
 $validator = new GUMP();
 
 // What are noise words? http://support.dtsearch.com/webhelp/dtsearch/noise_words.htm

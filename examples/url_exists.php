@@ -7,6 +7,8 @@ ini_set('display_errors', 1);
 
 require "../gump.class.php";
 
+use GUMP\GUMP;
+
 $validator = new GUMP();
 
 $_POST = array(

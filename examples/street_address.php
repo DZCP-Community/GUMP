@@ -7,6 +7,8 @@ ini_set('display_errors', 1);
 
 require "../gump.class.php";
 
+use GUMP\GUMP;
+
 $data = array(
 	'street' => '6 Avondans Road'
 );

@@ -3,6 +3,8 @@
 
 require "../gump.class.php";
 
+use GUMP\GUMP;
+
 $data = array(
   'username'         => "myusername",
   'password'         => "mypassword",

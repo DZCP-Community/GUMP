@@ -7,6 +7,8 @@ ini_set('display_errors', 1);
 
 require "../gump.class.php";
 
+use GUMP\GUMP;
+
 $data = array(
 	'one' => 'Freiheit, Mobilität und Unabhängigkeit lebt. ö, Ä, é, or ß',
 	'two' => 'ß'

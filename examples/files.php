@@ -3,6 +3,8 @@
 
 require "../gump.class.php";
 
+use GUMP\GUMP;
+
 $_FILES = array(
 	'attachments' => array(
 		'name'     => array("test1.png"),

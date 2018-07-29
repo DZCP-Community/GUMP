@@ -6,45 +6,53 @@
  * @author      Filis Futsarov (http://twitter.com/FilisCode)
  * @copyright   Copyright (c) 2017 wixelhq.com
  *
- * @version     1.5
+ * @modified    Lucas Brucksch (https://www.dzcp.de)
+ * @modified    Filis Futsarov (https://github.com/filisko)
+ * @modified    Vasileios Tsakalis (https://github.com/VasileiosTsakalis)
+ *
+ * @version     1.6.0
  */
+namespace GUMP;
+
+use DateTime;
+
 class GUMP
 {
     // Singleton instance of GUMP
     protected static $instance = null;
 
     // Validation rules for execution
-    protected $validation_rules = array();
+    protected $validation_rules = [];
 
     // Filter rules for execution
-    protected $filter_rules = array();
+    protected $filter_rules = [];
 
     // Instance attribute containing errors from last run
-    protected $errors = array();
+    protected $errors = [];
 
     // Contain readable field names that have been set manually
-    protected static $fields = array();
+    protected static $fields = [];
 
     // Custom validation methods
-    protected static $validation_methods = array();
+    protected static $validation_methods = [];
 
     // Custom validation methods error messages and custom ones
-    protected static $validation_methods_errors = array();
+    protected static $validation_methods_errors = [];
 
     // Customer filter methods
-    protected static $filter_methods = array();
+    protected static $filter_methods = [];
 
 
     // ** ------------------------- Instance Helper ---------------------------- ** //
+
     /**
      * Function to create and return previously created instance
      *
      * @return GUMP
+     * @throws \Exception
      */
-
-    public static function get_instance(){
-        if(self::$instance === null)
-        {
+    public static function get_instance() {
+        if(self::$instance === null) {
             self::$instance = new static();
         }
         return self::$instance;
@@ -65,15 +73,19 @@ class GUMP
                                      b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,$,1,2,3,4,5,6,7,8,9,0,_";
 
     // field characters below will be replaced with a space.
-    protected $fieldCharsToRemove = array('_', '-');
+    protected $fieldCharsToRemove = ['_', '-'];
 
     protected $lang;
 
 
     // ** ------------------------- Validation Helpers ---------------------------- ** //
 
-    public function __construct($lang = 'en')
-    {
+    /**
+     * GUMP constructor.
+     * @param string $lang
+     * @throws \Exception
+     */
+    public function __construct($lang = 'en') {
         if ($lang) {
             $lang_file = __DIR__.DIRECTORY_SEPARATOR.'lang'.DIRECTORY_SEPARATOR.$lang.'.php';
 
@@ -88,15 +100,14 @@ class GUMP
     /**
      * Shorthand method for inline validation.
      *
-     * @param array $data       The data to be validated
+     * @param array $data The data to be validated
      * @param array $validators The GUMP validators
      *
      * @return mixed True(boolean) or the array of error messages
+     * @throws \Exception
      */
-    public static function is_valid(array $data, array $validators)
-    {
+    public static function is_valid(array $data, array $validators) {
         $gump = self::get_instance();
-
         $gump->validation_rules($validators);
 
         if ($gump->run($data) === false) {
@@ -113,11 +124,10 @@ class GUMP
      * @param array $filters
      *
      * @return mixed
+     * @throws \Exception
      */
-    public static function filter_input(array $data, array $filters)
-    {
+    public static function filter_input(array $data, array $filters) {
         $gump = self::get_instance();
-
         return $gump->filter($data, $filters);
     }
 
@@ -125,10 +135,28 @@ class GUMP
      * Magic method to generate the validation error messages.
      *
      * @return string
+     * @throws \Exception
      */
-    public function __toString()
-    {
+    public function __toString() {
         return $this->get_readable_errors(true);
+    }
+
+    /**
+     * Setter for the language of massages.
+     *
+     * @param string $lang
+     * @throws \Exception
+     */
+    public function language(string $lang = 'en') {
+        if ($lang) {
+            $lang_file = __DIR__ . DIRECTORY_SEPARATOR . 'lang' . DIRECTORY_SEPARATOR . $lang . '.php';
+
+            if (file_exists($lang_file)) {
+                $this->lang = $lang;
+            } else {
+                throw new \Exception('Language with key "' . $lang . '" does not exist');
+            }
+        }
     }
 
     /**
@@ -140,8 +168,7 @@ class GUMP
      *
      * @return array
      */
-    public static function xss_clean(array $data)
-    {
+    public static function xss_clean(array $data) {
         foreach ($data as $k => $v) {
             $data[$k] = filter_var($v, FILTER_SANITIZE_STRING);
         }
@@ -158,14 +185,12 @@ class GUMP
      *
      * @return bool
      *
-     * @throws Exception
+     * @throws \Exception
      */
-    public static function add_validator($rule, $callback, $error_message = null)
-    {
+    public static function add_validator($rule, $callback, $error_message = null) {
         $method = 'validate_'.$rule;
-
         if (method_exists(__CLASS__, $method) || isset(self::$validation_methods[$rule])) {
-            throw new Exception("Validator rule '$rule' already exists.");
+            throw new \Exception("Validator rule '$rule' already exists.");
         }
 
         self::$validation_methods[$rule] = $callback;
@@ -184,18 +209,15 @@ class GUMP
      *
      * @return bool
      *
-     * @throws Exception
+     * @throws \Exception
      */
-    public static function add_filter($rule, $callback)
-    {
+    public static function add_filter($rule, $callback) {
         $method = 'filter_'.$rule;
-
         if (method_exists(__CLASS__, $method) || isset(self::$filter_methods[$rule])) {
-            throw new Exception("Filter rule '$rule' already exists.");
+            throw new \Exception("Filter rule '$rule' already exists.");
         }
 
         self::$filter_methods[$rule] = $callback;
-
         return true;
     }
 
@@ -207,17 +229,16 @@ class GUMP
      * @param mixed $default
      * @return mixed
      */
-    public static function field($key, array $array, $default = null)
-    {
-      if(!is_array($array)) {
-        return null;
-      }
+    public static function field($key, array $array, $default = null) {
+        if(!is_array($array)) {
+            return null;
+        }
 
-      if(isset($array[$key])) {
-        return $array[$key];
-      } else {
-        return $default;
-      }
+        if(isset($array[$key])) {
+            return $array[$key];
+        } else {
+            return $default;
+        }
     }
 
     /**
@@ -227,8 +248,7 @@ class GUMP
      *
      * @return array
      */
-    public function validation_rules(array $rules = array())
-    {
+    public function validation_rules(array $rules = array()) {
         if (empty($rules)) {
             return $this->validation_rules;
         }
@@ -243,8 +263,7 @@ class GUMP
      *
      * @return array
      */
-    public function filter_rules(array $rules = array())
-    {
+    public function filter_rules(array $rules = array()) {
         if (empty($rules)) {
             return $this->filter_rules;
         }
@@ -258,12 +277,11 @@ class GUMP
      * @param array $data
      * @param bool  $check_fields
      *
-     * @return array
+     * @return array|bool
      *
-     * @throws Exception
+     * @throws \Exception
      */
-    public function run(array $data, $check_fields = false)
-    {
+    public function run(array $data, $check_fields = false) {
         $data = $this->filter($data, $this->filter_rules());
 
         $validated = $this->validate(
@@ -286,19 +304,18 @@ class GUMP
      *
      * @param array $data
      */
-    private function check_fields(array $data)
-    {
+    private function check_fields(array $data) {
         $ruleset = $this->validation_rules();
         $mismatch = array_diff_key($data, $ruleset);
         $fields = array_keys($mismatch);
 
         foreach ($fields as $field) {
-            $this->errors[] = array(
+            $this->errors[] = [
                 'field' => $field,
                 'value' => $data[$field],
                 'rule' => 'mismatch',
                 'param' => null,
-            );
+            ];
         }
     }
 
@@ -306,14 +323,13 @@ class GUMP
      * Sanitize the input data.
      *
      * @param array $input
-     * @param null  $fields
-     * @param bool  $utf8_encode
+     * @param array $fields
+     * @param bool $utf8_encode
      *
      * @return array
      */
-    public function sanitize(array $input, array $fields = array(), $utf8_encode = true)
-    {
-        $magic_quotes = (bool) get_magic_quotes_gpc();
+    public function sanitize(array $input, array $fields = array(), $utf8_encode = true) {
+        $magic_quotes = (bool)\get_magic_quotes_gpc();
 
         if (empty($fields)) {
             $fields = array_keys($input);
@@ -339,7 +355,7 @@ class GUMP
                     }
 
                     if (function_exists('iconv') && function_exists('mb_detect_encoding') && $utf8_encode) {
-                        $current_encoding = mb_detect_encoding($value);
+                        $current_encoding = \mb_detect_encoding($value);
 
                         if ($current_encoding != 'UTF-8' && $current_encoding != 'UTF-16') {
                             $value = iconv($current_encoding, 'UTF-8', $value);
@@ -361,8 +377,7 @@ class GUMP
      *
      * @return array
      */
-    public function errors()
-    {
+    public function errors() {
         return $this->errors;
     }
 
@@ -374,18 +389,13 @@ class GUMP
      *
      * @return mixed
      *
-     * @throws Exception
+     * @throws \Exception
      */
-    public function validate(array $input, array $ruleset)
-    {
+    public function validate(array $input, array $ruleset) {
         $this->errors = array();
-
         foreach ($ruleset as $field => $rules) {
-
             $rules = explode('|', $rules);
-
             $look_for = array('required_file', 'required');
-
             if (count(array_intersect($look_for, $rules)) > 0 || (isset($input[$field]))) {
 
                 if (isset($input[$field])) {
@@ -399,9 +409,7 @@ class GUMP
                 }
 
                 foreach ($input_array as $value) {
-
                     $input[$field] = $value;
-
                     foreach ($rules as $rule) {
                         $method = null;
                         $param = null;
@@ -453,7 +461,7 @@ class GUMP
                             }
 
                         } else {
-                            throw new Exception("Validator method '$method' does not exist.");
+                            throw new \Exception("Validator method '$method' does not exist.");
                         }
                     }
                 }
@@ -469,8 +477,7 @@ class GUMP
      * @param string $field
      * @param string $readable_name
      */
-    public static function set_field_name($field, $readable_name)
-    {
+    public static function set_field_name($field, $readable_name) {
         self::$fields[$field] = $readable_name;
     }
 
@@ -486,8 +493,7 @@ class GUMP
      *
      * @param array $array
      */
-    public static function set_field_names(array $array)
-    {
+    public static function set_field_names(array $array) {
         foreach ($array as $field => $readable_name) {
             self::set_field_name($field, $readable_name);
         }
@@ -498,10 +504,9 @@ class GUMP
      *
      * @param string $rule
      * @param string $message
+     * @throws \Exception
      */
-    public static function set_error_message($rule, $message)
-    {
-        $gump = self::get_instance();
+    public static function set_error_message($rule, $message) {
         self::$validation_methods_errors[$rule] = $message;
     }
 
@@ -516,9 +521,9 @@ class GUMP
      * ));
      *
      * @param array $array
+     * @throws \Exception
      */
-    public static function set_error_messages(array $array)
-    {
+    public static function set_error_messages(array $array) {
         foreach ($array as $rule => $message) {
             self::set_error_message($rule, $message);
         }
@@ -529,8 +534,7 @@ class GUMP
      *
      * @return array
      */
-    protected function get_messages()
-    {
+    protected function get_messages() {
         $lang_file = __DIR__.DIRECTORY_SEPARATOR.'lang'.DIRECTORY_SEPARATOR.$this->lang.'.php';
         $messages = require $lang_file;
 
@@ -543,15 +547,15 @@ class GUMP
     /**
      * Process the validation errors and return human readable error messages.
      *
-     * @param bool   $convert_to_string = false
+     * @param bool $convert_to_string = false
      * @param string $field_class
      * @param string $error_class
      *
-     * @return array
+     * @return array|string
      * @return string
+     * @throws \Exception
      */
-    public function get_readable_errors($convert_to_string = false, $field_class = 'gump-field', $error_class = 'gump-error-message')
-    {
+    public function get_readable_errors($convert_to_string = false, $field_class = 'gump-field', $error_class = 'gump-error-message') {
         if (empty($this->errors)) {
             return ($convert_to_string) ? null : array();
         }
@@ -604,9 +608,9 @@ class GUMP
      * @param $convert_to_string
      *
      * @return array | null (if empty)
+     * @throws \Exception
      */
-    public function get_errors_array($convert_to_string = null)
-    {
+    public function get_errors_array($convert_to_string = null) {
         if (empty($this->errors)) {
             return ($convert_to_string) ? null : array();
         }
@@ -616,8 +620,7 @@ class GUMP
         // Error messages
         $messages = $this->get_messages();
 
-        foreach ($this->errors as $e)
-        {
+        foreach ($this->errors as $e) {
             $field = ucwords(str_replace(array('_', '-'), chr(32), $e['field']));
             $param = $e['param'];
 
@@ -655,14 +658,13 @@ class GUMP
      * @param mixed $input
      * @param array $filterset
      *
-     * @throws Exception
+     * @throws \Exception
      *
      * @return mixed
      *
-     * @throws Exception
+     * @throws \Exception
      */
-    public function filter(array $input, array $filterset)
-    {
+    public function filter(array $input, array $filterset) {
         foreach ($filterset as $field => $filters) {
             if (!array_key_exists($field, $input)) {
                 continue;
@@ -696,7 +698,7 @@ class GUMP
                     } elseif (isset(self::$filter_methods[$filter])) {
                         $value = call_user_func(self::$filter_methods[$filter], $value, $params);
                     } else {
-                        throw new Exception("Filter method '$filter' does not exist.");
+                        throw new \Exception("Filter method '$filter' does not exist.");
                     }
                 }
             }
@@ -717,8 +719,7 @@ class GUMP
      *
      * @return string
      */
-    protected function filter_noise_words($value, $params = null)
-    {
+    protected function filter_noise_words($value, $params = null) {
         $value = preg_replace('/\s\s+/u', chr(32), $value);
 
         $value = " $value ";
@@ -748,8 +749,7 @@ class GUMP
      *
      * @return string
      */
-    protected function filter_rmpunctuation($value, $params = null)
-    {
+    protected function filter_rmpunctuation($value, $params = null) {
         return preg_replace("/(?![.=$'€%-])\p{P}/u", '', $value);
     }
 
@@ -928,9 +928,9 @@ class GUMP
     }
 
     /**
-     * Converts value to url-web-slugs. 
-     * 
-     * Credit: 
+     * Converts value to url-web-slugs.
+     *
+     * Credit:
      * https://stackoverflow.com/questions/40641973/php-to-convert-string-to-slug
      * http://cubiq.org/the-perfect-php-clean-url-generator
      *
@@ -942,7 +942,12 @@ class GUMP
     protected function filter_slug($value, $params = null)
     {
         $delimiter = '-';
-        $slug = strtolower(trim(preg_replace('/[\s-]+/', $delimiter, preg_replace('/[^A-Za-z0-9-]+/', $delimiter, preg_replace('/[&]/', 'and', preg_replace('/[\']/', '', iconv('UTF-8', 'ASCII//TRANSLIT', $str))))), $delimiter));
+        $slug = strtolower(trim(
+            preg_replace('/[\s-]+/', $delimiter,
+                preg_replace('/[^A-Za-z0-9-]+/', $delimiter,
+            preg_replace('/[&]/', 'and',
+                preg_replace('/[\']/', '',
+                    iconv('UTF-8', 'ASCII//TRANSLIT', $value))))), $delimiter));
         return $slug;
     }
 
@@ -980,12 +985,11 @@ class GUMP
             return;
         }
 
-        return array(
+        return [
             'field' => $field,
             'value' => $value,
             'rule' => __FUNCTION__,
-            'param' => $param,
-        );
+            'param' => $param];
     }
 
     /**
@@ -995,8 +999,9 @@ class GUMP
      * Usage: '<index>' => 'contains_list,value;value;value'
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
     protected function validate_contains_list($field, $input, $param = null)
@@ -1006,9 +1011,7 @@ class GUMP
         }
 
         $param = trim(strtolower($param));
-
         $value = trim(strtolower($input[$field]));
-
         $param = explode(';', $param);
 
         // consider: in_array(strtolower($value), array_map('strtolower', $param)
@@ -1016,12 +1019,12 @@ class GUMP
         if (in_array($value, $param)) { // valid, return nothing
             return;
         } else {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $value,
                 'rule' => __FUNCTION__,
                 'param' => $param,
-            );
+            ];
         }
     }
 
@@ -1051,12 +1054,12 @@ class GUMP
         if (!in_array($value, $param)) { // valid, return nothing
             return;
         } else {
-            return array(
-                    'field' => $field,
-                    'value' => $value,
-                    'rule' => __FUNCTION__,
-                    'param' => $param,
-            );
+            return [
+                'field' => $field,
+                'value' => $value,
+                'rule' => __FUNCTION__,
+                'param' => $param,
+            ];
         }
     }
 
@@ -1077,12 +1080,12 @@ class GUMP
             return;
         }
 
-        return array(
+        return [
             'field' => $field,
             'value' => null,
             'rule' => __FUNCTION__,
             'param' => $param,
-        );
+        ];
     }
 
     /**
@@ -1103,12 +1106,12 @@ class GUMP
         }
 
         if (!filter_var($input[$field], FILTER_VALIDATE_EMAIL)) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
                 'param' => $param,
-            );
+            ];
         }
     }
 
@@ -1139,12 +1142,11 @@ class GUMP
             }
         }
 
-        return array(
+        return [
             'field' => $field,
             'value' => $input[$field],
             'rule' => __FUNCTION__,
-            'param' => $param,
-        );
+            'param' => $param];
     }
 
     /**
@@ -1174,12 +1176,11 @@ class GUMP
             }
         }
 
-        return array(
+        return [
             'field' => $field,
             'value' => $input[$field],
             'rule' => __FUNCTION__,
-            'param' => $param,
-        );
+            'param' => $param];
     }
 
     /**
@@ -1209,12 +1210,11 @@ class GUMP
             }
         }
 
-        return array(
+        return [
             'field' => $field,
             'value' => $input[$field],
             'rule' => __FUNCTION__,
-            'param' => $param,
-        );
+            'param' => $param];
     }
 
     /**
@@ -1262,12 +1262,11 @@ class GUMP
         }
 
         if (!preg_match('/^([a-z0-9ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÒÓÔÕÖßÙÚÛÜÝàáâãäåçèéêëìíîïðòóôõöùúûüýÿ])+$/i', $input[$field]) !== false) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -1289,12 +1288,11 @@ class GUMP
         }
 
         if (!preg_match('/^([a-zÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÒÓÔÕÖßÙÚÛÜÝàáâãäåçèéêëìíîïðòóôõöùúûüýÿ_-])+$/i', $input[$field]) !== false) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -1316,12 +1314,11 @@ class GUMP
         }
 
         if (!preg_match("/^([a-z0-9ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÒÓÔÕÖßÙÚÛÜÝàáâãäåçèéêëìíîïðòóôõöùúûüýÿ\s])+$/i", $input[$field]) !== false) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -1343,12 +1340,11 @@ class GUMP
         }
 
         if (!preg_match("/^([0-9a-zÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÒÓÔÕÖßÙÚÛÜÝàáâãäåçèéêëìíîïðòóôõöùúûüýÿ\s])+$/i", $input[$field]) !== false) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -1370,12 +1366,11 @@ class GUMP
         }
 
         if (!is_numeric($input[$field])) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -1397,12 +1392,11 @@ class GUMP
         }
 
         if (filter_var($input[$field], FILTER_VALIDATE_INT) === false) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -1428,12 +1422,11 @@ class GUMP
             return;
         }
 
-        return array(
+        return [
             'field' => $field,
             'value' => $input[$field],
             'rule' => __FUNCTION__,
-            'param' => $param,
-        );
+            'param' => $param];
     }
 
     /**
@@ -1454,12 +1447,11 @@ class GUMP
         }
 
         if (filter_var($input[$field], FILTER_VALIDATE_FLOAT) === false) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -1474,19 +1466,17 @@ class GUMP
      *
      * @return mixed
      */
-    protected function validate_valid_url($field, $input, $param = null)
-    {
+    protected function validate_valid_url($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
         if (!filter_var($input[$field], FILTER_VALIDATE_URL)) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -1515,21 +1505,19 @@ class GUMP
 
         if (function_exists('checkdnsrr')  && function_exists('idn_to_ascii')) {
             if (checkdnsrr(idn_to_ascii($url), 'A') === false) {
-                return array(
+                return [
                     'field' => $field,
                     'value' => $input[$field],
                     'rule' => __FUNCTION__,
-                    'param' => $param,
-                );
+                    'param' => $param];
             }
         } else {
             if (gethostbyname($url) == $url) {
-                return array(
+                return [
                     'field' => $field,
                     'value' => $input[$field],
                     'rule' => __FUNCTION__,
-                    'param' => $param,
-                );
+                    'param' => $param];
             }
         }
     }
@@ -1540,8 +1528,9 @@ class GUMP
      * Usage: '<index>' => 'valid_ip'
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
     protected function validate_valid_ip($field, $input, $param = null)
@@ -1551,12 +1540,11 @@ class GUMP
         }
 
         if (!filter_var($input[$field], FILTER_VALIDATE_IP) !== false) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -1586,12 +1574,11 @@ class GUMP
         if (!filter_var($input[$field], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
             // removed !== FALSE
 
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -1648,9 +1635,9 @@ class GUMP
 
 
         /**
-         * Bail out if $number_length is 0. 
+         * Bail out if $number_length is 0.
          * This can be the case if a user has entered only alphabets
-         * 
+         *
          * @since 1.5
          */
         if( $number_length == 0 ) {
@@ -1777,7 +1764,7 @@ class GUMP
             'Z' => 35, 'B' => 11
         );
 
-        if (!preg_match("/\A[A-Z]{2}\d{2} ?[A-Z\d]{4}( ?\d{4}){1,} ?\d{1,4}\z/", $input[$field])) {
+        if (!preg_match("/\A[A-Z]{2}\d{2} ?[A-Z\d]{4}( ?\d{4}) {1,} ?\d{1,4}\z/", $input[$field])) {
             return array(
                 'field' => $field,
                 'value' => $input[$field],
@@ -1859,8 +1846,7 @@ class GUMP
      *
      * @return mixed
      */
-    protected function validate_min_age($field, $input, $param = null)
-    {
+    protected function validate_min_age($field, $input, $param = null){
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
@@ -1872,12 +1858,11 @@ class GUMP
         $age = $interval->y;
 
         if ($age <= $param) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -1892,8 +1877,7 @@ class GUMP
      *
      * @return mixed
      */
-    protected function validate_max_numeric($field, $input, $param = null)
-    {
+    protected function validate_max_numeric($field, $input, $param = null){
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
@@ -1902,12 +1886,11 @@ class GUMP
             return;
         }
 
-        return array(
+        return [
             'field' => $field,
             'value' => $input[$field],
             'rule' => __FUNCTION__,
-            'param' => $param,
-        );
+            'param' => $param];
     }
 
     /**
@@ -1920,8 +1903,7 @@ class GUMP
      * @param null   $param
      * @return mixed
      */
-    protected function validate_min_numeric($field, $input, $param = null)
-    {
+    protected function validate_min_numeric($field, $input, $param = null){
         if (!isset($input[$field]) || $input[$field] === '') {
             return;
         }
@@ -1930,12 +1912,11 @@ class GUMP
             return;
         }
 
-        return array(
+        return [
             'field' => $field,
             'value' => $input[$field],
             'rule' => __FUNCTION__,
-            'param' => $param,
-        );
+            'param' => $param];
     }
 
     /**
@@ -1944,53 +1925,50 @@ class GUMP
      * Usage: '<index>' => 'starts,Z'
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
-    protected function validate_starts($field, $input, $param = null)
-    {
+    protected function validate_starts($field, $input, $param = null){
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
         if (strpos($input[$field], $param) !== 0) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
-      /**
-       * Checks if a file was uploaded.
-       *
-       * Usage: '<index>' => 'required_file'
-       *
-       * @param  string $field
-       * @param  array $input
-       *
-       * @return mixed
-       */
-      protected function validate_required_file($field, $input, $param = null)
-      {
-          if (!isset($input[$field])) {
-              return;
-          }
+    /**
+     * Checks if a file was uploaded.
+     *
+     * Usage: '<index>' => 'required_file'
+     *
+     * @param  string $field
+     * @param  array $input
+     *
+     * @return mixed
+     */
+    protected function validate_required_file($field, $input, $param = null){
+        if (!isset($input[$field])) {
+            return;
+        }
 
-          if (is_array($input[$field]) && $input[$field]['error'] !== 4) {
-              return;
-          }
+        if (is_array($input[$field]) && $input[$field]['error'] !== 4) {
+            return;
+        }
 
-          return array(
-              'field' => $field,
-              'value' => $input[$field],
-              'rule' => __FUNCTION__,
-              'param' => $param,
-          );
-      }
+        return [
+            'field' => $field,
+            'value' => $input[$field],
+            'rule' => __FUNCTION__,
+            'param' => $param];
+    }
 
     /**
      * Check the uploaded file for extension for now
@@ -1999,12 +1977,12 @@ class GUMP
      * Usage: '<index>' => 'extension,png;jpg;gif
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
-    protected function validate_extension($field, $input, $param = null)
-    {
+    protected function validate_extension($field, $input, $param = null){
         if (!isset($input[$field])) {
             return;
         }
@@ -2020,12 +1998,11 @@ class GUMP
                 return;
             }
 
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -2041,8 +2018,7 @@ class GUMP
      *
      * @return mixed
      */
-    protected function validate_equalsfield($field, $input, $param = null)
-    {
+    protected function validate_equalsfield($field, $input, $param = null){
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
@@ -2051,12 +2027,11 @@ class GUMP
             return;
         }
 
-        return array(
+        return [
             'field' => $field,
             'value' => $input[$field],
             'rule' => __FUNCTION__,
-            'param' => $param,
-        );
+            'param' => $param];
     }
 
     /**
@@ -2069,38 +2044,20 @@ class GUMP
      * @param string $param field to compare with
      * @return mixed
      */
-    protected function validate_guidv4($field, $input, $param = null)
-    {
+    protected function validate_guidv4($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
         if (preg_match("/\{?[A-Z0-9]{8}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{12}\}?$/", $input[$field])) {
-          return;
+            return;
         }
 
-        return array(
+        return [
             'field' => $field,
             'value' => $input[$field],
             'rule' => __FUNCTION__,
-            'param' => $param,
-        );
-    }
-
-    /**
-     * Trims whitespace only when the value is a scalar.
-     *
-     * @param mixed $value
-     *
-     * @return mixed
-     */
-    private function trimScalar($value)
-    {
-        if (is_scalar($value)) {
-            $value = trim($value);
-        }
-
-        return $value;
+            'param' => $param];
     }
 
     /**
@@ -2109,8 +2066,9 @@ class GUMP
      * Usage: '<index>' => 'phone_number'
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      *
      * Examples:
@@ -2123,20 +2081,18 @@ class GUMP
      *  1-555-555-5555: valid
      *  1-(555)-555-5555: valid
      */
-    protected function validate_phone_number($field, $input, $param = null)
-    {
+    protected function validate_phone_number($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
         $regex = '/^(\d[\s-]?)?[\(\[\s-]{0,2}?\d{3}[\)\]\s-]{0,2}?\d{3}[\s-]?\d{4}$/i';
         if (!preg_match($regex, $input[$field])) {
-            return array(
-              'field' => $field,
-              'value' => $input[$field],
-              'rule' => __FUNCTION__,
-              'param' => $param,
-            );
+            return [
+                'field' => $field,
+                'value' => $input[$field],
+                'rule' => __FUNCTION__,
+                'param' => $param];
         }
     }
 
@@ -2146,24 +2102,23 @@ class GUMP
      * Usage: '<index>' => 'regex,/your-regex-expression/'
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
-    protected function validate_regex($field, $input, $param = null)
-    {
+    protected function validate_regex($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
         $regex = $param;
         if (!preg_match($regex, $input[$field])) {
-            return array(
-              'field' => $field,
-              'value' => $input[$field],
-              'rule' => __FUNCTION__,
-              'param' => $param,
-            );
+            return [
+                'field' => $field,
+                'value' => $input[$field],
+                'rule' => __FUNCTION__,
+                'param' => $param];
         }
     }
 
@@ -2173,23 +2128,22 @@ class GUMP
      * Usage: '<index>' => 'valid_json_string'
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
-    protected function validate_valid_json_string($field, $input, $param = null)
-    {
+    protected function validate_valid_json_string($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
         if (!is_string($input[$field]) || !is_object(json_decode($input[$field]))) {
-            return array(
-              'field' => $field,
-              'value' => $input[$field],
-              'rule' => __FUNCTION__,
-              'param' => $param,
-            );
+            return [
+                'field' => $field,
+                'value' => $input[$field],
+                'rule' => __FUNCTION__,
+                'param' => $param];
         }
     }
 
@@ -2199,23 +2153,22 @@ class GUMP
      * Usage: '<index>' => 'valid_array_size_greater,1'
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
-    protected function validate_valid_array_size_greater($field, $input, $param = null)
-    {
+    protected function validate_valid_array_size_greater($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
         if (!is_array($input[$field]) || sizeof($input[$field]) < (int)$param) {
-            return array(
-              'field' => $field,
-              'value' => $input[$field],
-              'rule' => __FUNCTION__,
-              'param' => $param,
-            );
+            return [
+                'field' => $field,
+                'value' => $input[$field],
+                'rule' => __FUNCTION__,
+                'param' => $param];
         }
     }
 
@@ -2227,21 +2180,21 @@ class GUMP
      * @param string $field
      * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
-    protected function validate_valid_array_size_lesser($field, $input, $param = null)
-    {
+    protected function validate_valid_array_size_lesser($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
+        /** @var array $field */
         if (!is_array($input[$field]) || sizeof($input[$field]) > (int)$param) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule'  => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
 
@@ -2253,25 +2206,22 @@ class GUMP
      * @param string $field
      * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
-    protected function validate_valid_array_size_equal($field, $input, $param = null)
-    {
+    protected function validate_valid_array_size_equal($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
         if (!is_array($input[$field]) || sizeof($input[$field]) == (int)$param) {
-            return array(
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule'  => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
-
-
 
     /**
      * Determine if the input is a valid person name in Persian/Dari or Arabic mainly in Afghanistan and Iran.
@@ -2279,156 +2229,167 @@ class GUMP
      * Usage: '<index>' => 'valid_persian_name'
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
-    protected function validate_valid_persian_name($field, $input, $param = null)
-    {
+    protected function validate_valid_persian_name($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
-        if (!preg_match("/^([ا آ أ إ ب پ ت ث ج چ ح خ د ذ ر ز ژ س ش ص ض ط ظ ع غ ف ق ک ك گ ل م ن و ؤ ه ة ی ي ئ ء ّ َ ِ ُ ً ٍ ٌ ْ\x{200B}-\x{200D}])+$/u", $input[$field]) !== false) {
-            return array(
+        if (!\preg_match("/^([ا آ أ إ ب پ ت ث ج چ ح خ د ذ ر ز ژ س ش ص ض ط ظ ع غ ف ق ک ك گ ل م ن و ؤ ه ة ی ي ئ ء ّ َ ِ ُ ً ٍ ٌ ْ\x{200B}-\x{200D}])+$/u", $input[$field]) !== false) {
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
-	
-	/**
+
+    /**
      * Determine if the input is a valid person name in English, Persian/Dari/Pashtu or Arabic mainly in Afghanistan and Iran.
      *
      * Usage: '<index>' => 'valid_eng_per_pas_name'
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
-    protected function validate_valid_eng_per_pas_name($field, $input, $param = null)
-    {
+    protected function validate_valid_eng_per_pas_name($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
-        if (!preg_match("/^([A-Za-zÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÒÓÔÕÖßÙÚÛÜÝàáâãäåçèéêëìíîïñðòóôõöùúûüýÿ'\- ا آ أ إ ب پ ت ټ ث څ ج چ ح ځ خ د ډ ذ ر ړ ز ږ ژ س ش ښ ص ض ط ظ ع غ ف ق ک ګ ك گ ل م ن ڼ و ؤ ه ة ی ي ې ۍ ئ ؋ ء ّ َ ِ ُ ً ٍ ٌ ْ \x{200B}-\x{200D} \s])+$/u", $input[$field]) !== false) {
-            return array(
+        if (!\preg_match("/^([A-Za-zÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÒÓÔÕÖßÙÚÛÜÝàáâãäåçèéêëìíîïñðòóôõöùúûüýÿ'\- ا آ أ إ ب پ ت ټ ث څ ج چ ح ځ خ د ډ ذ ر ړ ز ږ ژ س ش ښ ص ض ط ظ ع غ ف ق ک ګ ك گ ل م ن ڼ و ؤ ه ة ی ي ې ۍ ئ ؋ ء ّ َ ِ ُ ً ٍ ٌ ْ \x{200B}-\x{200D} \s])+$/u", $input[$field]) !== false) {
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
-	
-	/**
+
+    /**
      * Determine if the input is valid digits in Persian/Dari, Pashtu or Arabic format.
      *
      * Usage: '<index>' => 'valid_persian_digit'
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
-    protected function validate_valid_persian_digit($field, $input, $param = null)
-    {
+    protected function validate_valid_persian_digit($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
-        if (!preg_match("/^([۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩])+$/u", $input[$field]) !== false) {
-            return array(
+        if (!\preg_match("/^([۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩])+$/u", $input[$field]) !== false) {
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
-	
-	
-	/**
+
+
+    /**
      * Determine if the input is a valid text in Persian/Dari or Arabic mainly in Afghanistan and Iran.
      *
      * Usage: '<index>' => 'valid_persian_text'
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
-    protected function validate_valid_persian_text($field, $input, $param = null)
-    {
+    protected function validate_valid_persian_text($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
-		
-        if (!preg_match("/^([ا آ أ إ ب پ ت ث ج چ ح خ د ذ ر ز ژ س ش ص ض ط ظ ع غ ف ق ک ك گ ل م ن و ؤ ه ة ی ي ئ ء ّ َ ِ ُ ً ٍ ٌ \. \/ \\ = \- \| \{ \} \[ \] ؛ : « » ؟ > < \+ \( \) \* ، × ٪ ٫ ٬ ! ۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩\x{200B}-\x{200D} \x{FEFF} \x{22} \x{27} \x{60} \x{B4} \x{2018} \x{2019} \x{201C} \x{201D} \s])+$/u", $input[$field]) !== false) {
-            return array(
+
+        if (!\preg_match("/^([ا آ أ إ ب پ ت ث ج چ ح خ د ذ ر ز ژ س ش ص ض ط ظ ع غ ف ق ک ك گ ل م ن و ؤ ه ة ی ي ئ ء ّ َ ِ ُ ً ٍ ٌ \. \/ \\ = \- \| \{ \} \[ \] ؛ : « » ؟ > < \+ \( \) \* ، × ٪ ٫ ٬ ! ۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩\x{200B}-\x{200D} \x{FEFF} \x{22} \x{27} \x{60} \x{B4} \x{2018} \x{2019} \x{201C} \x{201D} \s])+$/u", $input[$field]) !== false) {
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
-	
-	/**
+
+    /**
      * Determine if the input is a valid text in Pashtu mainly in Afghanistan.
      *
      * Usage: '<index>' => 'valid_pashtu_text'
      *
      * @param string $field
-     * @param array  $input
+     * @param array $input
      *
+     * @param null $param
      * @return mixed
      */
-    protected function validate_valid_pashtu_text($field, $input, $param = null)
-    {
+    protected function validate_valid_pashtu_text($field, $input, $param = null) {
         if (!isset($input[$field]) || empty($input[$field])) {
             return;
         }
 
-        if (!preg_match("/^([ا آ أ ب پ ت ټ ث څ ج چ ح ځ خ د ډ ذ ر ړ ز ږ ژ س ش ښ ص ض ط ظ ع غ ف ق ک ګ ل م ن ڼ و ؤ ه ة ی ې ۍ ي ئ ء ْ ٌ ٍ ً ُ ِ َ ّ ؋ \. \/ \\ = \- \| \{ \} \[ \] ؛ : « » ؟ > < \+ \( \) \* ، × ٪ ٫ ٬ ! ۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩ \x{200B}-\x{200D} \x{FEFF} \x{22} \x{27} \x{60} \x{B4} \x{2018} \x{2019} \x{201C} \x{201D} \s])+$/u", $input[$field]) !== false) {
-            return array(
+        if (!\preg_match("/^([ا آ أ ب پ ت ټ ث څ ج چ ح ځ خ د ډ ذ ر ړ ز ږ ژ س ش ښ ص ض ط ظ ع غ ف ق ک ګ ل م ن ڼ و ؤ ه ة ی ې ۍ ي ئ ء ْ ٌ ٍ ً ُ ِ َ ّ ؋ \. \/ \\ = \- \| \{ \} \[ \] ؛ : « » ؟ > < \+ \( \) \* ، × ٪ ٫ ٬ ! ۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩ \x{200B}-\x{200D} \x{FEFF} \x{22} \x{27} \x{60} \x{B4} \x{2018} \x{2019} \x{201C} \x{201D} \s])+$/u", $input[$field]) !== false) {
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param,
-            );
+                'param' => $param];
         }
     }
-    
+
     /**
      * Determine if the provided value is a valid twitter handle.
      *
      * @access protected
      * @param  string $field
      * @param  array $input
+     * @param array $param
      * @return mixed
      */
-    protected function validate_valid_twitter($field, $input, $param = NULL)
-    {
-        if(!isset($input[$field]) || empty($input[$field]))
-        {
+    protected function validate_valid_twitter($field, $input, $param = NULL) {
+        if(!isset($input[$field]) || empty($input[$field])) {
             return;
         }
-        $json_twitter = file_get_contents("http://twitter.com/users/username_available?username=".$input[$field]);
-        
-        $twitter_response = json_decode($json_twitter);
-        if($twitter_response->reason != "taken"){
-            return array(
+
+        $url = "http://twitter.com/users/username_available?username=".
+            preg_replace('/[^a-z0-9 ]/i','', $input[$field]);
+        if(function_exists('curl_init')) {
+            $curl = \curl_init();
+            \curl_setopt($curl, CURLOPT_URL, $url);
+            \curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+            $json_twitter = \curl_exec($curl);
+            \curl_close($curl);
+        } else {
+            $json_twitter = \file_get_contents($url);
+        }
+
+        if(empty($json_twitter) || !$json_twitter) {
+            return;
+        }
+
+        $twitter_response = \json_decode($json_twitter);
+        if((\json_last_error() !== JSON_ERROR_NONE)) {
+            return;
+        }
+
+        if($twitter_response->reason != "taken") {
+            return [
                 'field' => $field,
                 'value' => $input[$field],
                 'rule' => __FUNCTION__,
-                'param' => $param
-            );
+                'param' => $param];
         }
     }
-    
 }
